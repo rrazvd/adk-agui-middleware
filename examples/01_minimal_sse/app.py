@@ -11,7 +11,7 @@ Run locally:
     uvicorn app:app --reload
 
 Environment variables (optional):
-- `ADK_MODEL_NAME` (default: `gemini-1.5-flash`)
+- `ADK_MODEL_NAME` (default: `gemini-2.0-flash`)
 
 Note:
 - Ensure `google-adk` and its model provider dependencies are installed.
@@ -31,46 +31,44 @@ from adk_agui_middleware import SSEService, register_agui_endpoint
 from adk_agui_middleware.data_model.config import PathConfig
 from adk_agui_middleware.data_model.context import ConfigContext
 
-
 def build_llm_agent() -> Any:
-    """Create a simple LLM agent from google.adk.
+    """Create a simple LLM agent from google.adk."""
+    from google.adk.agents.llm_agent import LlmAgent  # type: ignore
 
-    Tries a common import path first; if your ADK version differs, adjust the
-    import below. The default model name is intentionally conservative.
-    """
-    try:  # Typical import path for recent ADK versions
-        from google.adk.agents.llm_agent import LlmAgent  # type: ignore
-    except Exception:  # Fallback for alternate package layouts
-        try:
-            from google.adk.agents import LlmAgent  # type: ignore
-        except Exception as e:  # pragma: no cover
-            raise RuntimeError(
-                "google.adk LlmAgent not available. Please install google-adk."
-            ) from e
+    # Get model name from environment (gemini-2.0-flash is the current working model)
+    model_name = os.getenv("ADK_MODEL_NAME", "gemini-2.0-flash")
 
-    # Get model name from environment or use default Gemini Flash model
-    model_name = os.getenv("ADK_MODEL_NAME", "gemini-1.5-flash")
+    # Require API key for authentication
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GOOGLE_API_KEY is required. Get your API key from: "
+            "https://aistudio.google.com/app/apikey"
+        )
+    
+    def get_items() -> list:
+        """Returns a list of available items."""
+        mocked_items = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5']
+        return mocked_items
 
-    # The constructor signature can vary between ADK versions; we try the common ones first.
-    try:
-        # Try keyword argument approach (newer versions)
-        return LlmAgent(model_name=model_name)  # type: ignore[call-arg]
-    except TypeError:
-        pass
-    try:
-        # Try positional argument approach (older versions)
-        return LlmAgent(model_name)  # type: ignore[misc]
-    except TypeError:
-        pass
+    return LlmAgent(name="demo_agent", model=model_name, tools=[get_items], instruction="""
+        You are a helpful assistant that provides information about available items.
+        
+        Always check the possibility of using rendering tools to display data visually to the user.
+        You must ensure that the user has the most visual experience possible, using the available rendering tools.
 
-    # Final fallback—bare init; users can adapt to their version.
-    return LlmAgent()  # type: ignore[call-arg]
+        ** AVAILABLE ITEMS **
+            - get_items: Get a list of available items.
+                Use case example: "What items are available?";
 
+                ALWAYS show data using the render_Items rendering tool.
+                When the render_Items tool returns "success" it means the rendering was successful, 
+                so do not present the data in plain text format, just indicate: "Here are the available items for you to choose from.".
+    """)
 
-def extract_user_id(_: RunAgentInput, request: Request) -> str:
+async def extract_user_id(_: RunAgentInput, request: Request) -> str:
     """Get user id from header (falls back to "guest")."""
     return request.headers.get("X-User-Id", "guest")
-
 
 # Instantiate the LLM agent from google.adk for processing user requests
 agent: Any = build_llm_agent()
@@ -92,15 +90,15 @@ sse_service = SSEService(
     config_context=config_context,  # Request context extraction configuration
 )
 
-# Create the FastAPI app and register the SSE endpoint at /agui
+# Create the FastAPI app and register the SSE endpoint at /ag-ui
 app = FastAPI(title="AGUI Minimal SSE")
 # Register the main endpoint that accepts POST requests and streams SSE responses
 register_agui_endpoint(
     app=app,
     sse_service=sse_service,
     path_config=PathConfig(
-        agui_main_path="/agui"
-    ),  # Endpoint will be available at POST /agui
+        agui_main_path="/ag-ui"
+    ),  # Endpoint will be available at POST /ag-ui
 )
 
 
