@@ -22,7 +22,7 @@ Note:
 from __future__ import annotations
 
 from ag_ui.core import RunAgentInput
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 
 from google.adk.agents import Agent
 from google.adk.sessions import DatabaseSessionService
@@ -38,7 +38,7 @@ def get_items() -> list:
     mocked_items = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5']
     return mocked_items
 
-agent = Agent(
+root_agent = Agent(
     name="GenericAgent",
     model="gemini-2.5-flash",
     instruction="""
@@ -84,17 +84,18 @@ runner_config = RunnerConfig(session_service=DatabaseSessionService(DATABASE_SER
 # Build the SSE service that will run the agent and stream events to the client
 # This service orchestrates the entire request-response pipeline
 sse_service = SSEService(
-    agent=agent,  # The LLM agent that processes user inputs
+    agent=root_agent,  # The LLM agent that processes user inputs
     config_context=config_context,  # Request context extraction configuration
     runner_config=runner_config
 )
 
-""" # Create the FastAPI app using ADK's helper to get all original SDK routes
+"""
+# Create the FastAPI app using ADK's helper to get all original SDK routes
 app: FastAPI = get_fast_api_app(
     agents_dir="../",
     session_service_uri=DATABASE_SERVICE_URI,
     web=True,
-) """
+)"""
 
 # Create the FastAPI app and register the SSE endpoint at /ag-ui
 app = FastAPI(title="AGUI Minimal SSE")
@@ -108,8 +109,15 @@ register_agui_endpoint(
     ),  # Endpoint will be available at POST /ag-ui
 )
 
-
-if __name__ == "__main__":  # pragma: no cover - manual run helper
+if __name__ == "__main__":
+    import os
     import uvicorn
 
-    uvicorn.run("agent:app", host="0.0.0.0", port=8000, reload=True)
+    if not os.getenv("GOOGLE_API_KEY"):
+        print("⚠️  Warning: GOOGLE_API_KEY environment variable not set!")
+        print("   Set it with: export GOOGLE_API_KEY='your-key-here'")
+        print("   Get a key from: https://makersuite.google.com/app/apikey")
+        print()
+
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
