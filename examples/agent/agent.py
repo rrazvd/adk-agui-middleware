@@ -33,12 +33,12 @@ root_agent = Agent(
                 ALWAYS show data using the render_Items rendering tool.
                 When the render_Items tool returns "success" it means the rendering was successful, 
                 so do not present the data in plain text format, just indicate: "Here are the available items for you to choose from.".
+
+        ## USER CONTEXT:
+        - User name: "{user_name}"
     """,
     tools=[get_items]
 )
-
-## USER CONTEXT:
-#- User name: "{user_name}"
 
 DATABASE_SERVICE_URI = "sqlite:///./sessions.db"
 
