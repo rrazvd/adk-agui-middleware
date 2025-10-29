@@ -21,12 +21,10 @@ Note:
 
 from __future__ import annotations
 
-import os
-from typing import Any
-
 from ag_ui.core import RunAgentInput
 from fastapi import FastAPI, Request
 
+from google.adk.agents import Agent
 from google.adk.sessions import DatabaseSessionService
 #from google.adk.cli.fast_api import get_fast_api_app
 
@@ -35,27 +33,15 @@ from adk_agui_middleware.data_model.config import PathConfig
 from adk_agui_middleware.data_model.context import ConfigContext
 from adk_agui_middleware.data_model.config import RunnerConfig
 
-def build_llm_agent() -> Any:
-    """Create a simple LLM agent from google.adk."""
-    from google.adk.agents.llm_agent import LlmAgent  # type: ignore
+def get_items() -> list:
+    """Returns a list of available items."""
+    mocked_items = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5']
+    return mocked_items
 
-    # Get model name from environment (gemini-2.0-flash is the current working model)
-    model_name = os.getenv("ADK_MODEL_NAME", "gemini-2.0-flash")
-
-    # Require API key for authentication
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "GOOGLE_API_KEY is required. Get your API key from: "
-            "https://aistudio.google.com/app/apikey"
-        )
-    
-    def get_items() -> list:
-        """Returns a list of available items."""
-        mocked_items = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5']
-        return mocked_items
-
-    return LlmAgent(name="demo_agent", model=model_name, tools=[get_items], instruction="""
+agent = Agent(
+    name="GenericAgent",
+    model="gemini-2.5-flash",
+    instruction="""
         You are a helpful assistant that provides information about available items.
         
         Always check the possibility of using rendering tools to display data visually to the user.
@@ -68,14 +54,20 @@ def build_llm_agent() -> Any:
                 ALWAYS show data using the render_Items rendering tool.
                 When the render_Items tool returns "success" it means the rendering was successful, 
                 so do not present the data in plain text format, just indicate: "Here are the available items for you to choose from.".
-    """)
+    """,
+    tools=[get_items]
+)
 
-async def extract_user_id(_: RunAgentInput, request: Request) -> str:
-    """Get user id from header (falls back to "guest")."""
-    return request.headers.get("X-User-Id", "guest")
+## USER CONTEXT:
+#- User name: "{user_name}"
 
-# Instantiate the LLM agent from google.adk for processing user requests
-agent: Any = build_llm_agent()
+DATABASE_SERVICE_URI = "sqlite:///./sessions.db"
+
+# Define custom extractor that uses state
+async def user_id_extractor(input: RunAgentInput, _) -> str:
+    if hasattr(input.state, 'get') and input.state.get("user_id"):
+        return input.state["user_id"]
+    return "anonymous"
 
 # Minimal in-memory configuration suitable for local development
 # This uses default in-memory services for history, state, and session management
@@ -83,11 +75,10 @@ agent: Any = build_llm_agent()
 # Configure how the middleware extracts request context from incoming requests
 config_context = ConfigContext(
     app_name="demo-app",  # Application identifier for logging and state management
-    user_id=extract_user_id,  # Function to extract user ID from request
+    user_id=user_id_extractor,  # Function to extract user ID from state
     # session_id defaults to a safe generator; you can also supply your own.
 )
 
-DATABASE_SERVICE_URI = "sqlite:///./sessions.db"
 runner_config = RunnerConfig(session_service=DatabaseSessionService(DATABASE_SERVICE_URI))
 
 # Build the SSE service that will run the agent and stream events to the client
