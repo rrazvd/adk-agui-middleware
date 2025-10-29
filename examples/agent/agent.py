@@ -21,12 +21,12 @@ Note:
 
 from __future__ import annotations
 
-from ag_ui.core import RunAgentInput
 from fastapi import FastAPI
 
 from google.adk.agents import Agent
-from google.adk.sessions import DatabaseSessionService
 from google.adk.cli.fast_api import get_fast_api_app
+from google.adk.sessions import DatabaseSessionService
+from ag_ui.core import RunAgentInput
 
 from adk_agui_middleware import SSEService, register_agui_endpoint
 from adk_agui_middleware.data_model.config import PathConfig
