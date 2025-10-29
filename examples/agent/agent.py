@@ -27,9 +27,13 @@ from typing import Any
 from ag_ui.core import RunAgentInput
 from fastapi import FastAPI, Request
 
+from google.adk.sessions import DatabaseSessionService
+#from google.adk.cli.fast_api import get_fast_api_app
+
 from adk_agui_middleware import SSEService, register_agui_endpoint
 from adk_agui_middleware.data_model.config import PathConfig
 from adk_agui_middleware.data_model.context import ConfigContext
+from adk_agui_middleware.data_model.config import RunnerConfig
 
 def build_llm_agent() -> Any:
     """Create a simple LLM agent from google.adk."""
@@ -83,15 +87,27 @@ config_context = ConfigContext(
     # session_id defaults to a safe generator; you can also supply your own.
 )
 
+DATABASE_SERVICE_URI = "sqlite:///./sessions.db"
+runner_config = RunnerConfig(session_service=DatabaseSessionService(DATABASE_SERVICE_URI))
+
 # Build the SSE service that will run the agent and stream events to the client
 # This service orchestrates the entire request-response pipeline
 sse_service = SSEService(
     agent=agent,  # The LLM agent that processes user inputs
     config_context=config_context,  # Request context extraction configuration
+    runner_config=runner_config
 )
+
+""" # Create the FastAPI app using ADK's helper to get all original SDK routes
+app: FastAPI = get_fast_api_app(
+    agents_dir="../",
+    session_service_uri=DATABASE_SERVICE_URI,
+    web=True,
+) """
 
 # Create the FastAPI app and register the SSE endpoint at /ag-ui
 app = FastAPI(title="AGUI Minimal SSE")
+
 # Register the main endpoint that accepts POST requests and streams SSE responses
 register_agui_endpoint(
     app=app,
@@ -105,4 +121,4 @@ register_agui_endpoint(
 if __name__ == "__main__":  # pragma: no cover - manual run helper
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("agent:app", host="0.0.0.0", port=8000, reload=True)
