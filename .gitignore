@@ -246,6 +246,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+*sessions.db
 
 # Spyder project settings
 .spyderproject
