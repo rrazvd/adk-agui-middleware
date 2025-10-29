@@ -26,7 +26,7 @@ from fastapi import FastAPI
 
 from google.adk.agents import Agent
 from google.adk.sessions import DatabaseSessionService
-#from google.adk.cli.fast_api import get_fast_api_app
+from google.adk.cli.fast_api import get_fast_api_app
 
 from adk_agui_middleware import SSEService, register_agui_endpoint
 from adk_agui_middleware.data_model.config import PathConfig
@@ -74,7 +74,7 @@ async def user_id_extractor(input: RunAgentInput, _) -> str:
 
 # Configure how the middleware extracts request context from incoming requests
 config_context = ConfigContext(
-    app_name="demo-app",  # Application identifier for logging and state management
+    app_name="agent",  # Application identifier for logging and state management
     user_id=user_id_extractor,  # Function to extract user ID from state
     # session_id defaults to a safe generator; you can also supply your own.
 )
@@ -89,16 +89,15 @@ sse_service = SSEService(
     runner_config=runner_config
 )
 
-"""
 # Create the FastAPI app using ADK's helper to get all original SDK routes
 app: FastAPI = get_fast_api_app(
     agents_dir="../",
     session_service_uri=DATABASE_SERVICE_URI,
     web=True,
-)"""
+)
 
 # Create the FastAPI app and register the SSE endpoint at /ag-ui
-app = FastAPI(title="AGUI Minimal SSE")
+#app = FastAPI(title="AGUI Minimal SSE")
 
 # Register the main endpoint that accepts POST requests and streams SSE responses
 register_agui_endpoint(
