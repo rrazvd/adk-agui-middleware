@@ -1,24 +1,3 @@
-"""Minimal FastAPI app that exposes an SSE endpoint for AGUI, using
-google.adk's LLM agent (LlmAgent) as the underlying agent.
-
-This example shows the smallest practical integration of the middleware:
-- Creates an `SSEService` with in-memory services.
-- Registers a single POST endpoint that streams Server-Sent Events.
-- Extracts a simple `user_id` from the `X-User-Id` header (defaults to "guest").
-- Instantiates an `LlmAgent` with a model name from environment variables.
-
-Run locally:
-    uvicorn app:app --reload
-
-Environment variables (optional):
-- `ADK_MODEL_NAME` (default: `gemini-2.0-flash`)
-
-Note:
-- Ensure `google-adk` and its model provider dependencies are installed.
-- If your ADK version expects different constructor arguments for `LlmAgent`,
-  adjust `build_llm_agent()` accordingly (the function is tiny on purpose).
-"""
-
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -95,9 +74,6 @@ app: FastAPI = get_fast_api_app(
     session_service_uri=DATABASE_SERVICE_URI,
     web=True,
 )
-
-# Create the FastAPI app and register the SSE endpoint at /ag-ui
-#app = FastAPI(title="AGUI Minimal SSE")
 
 # Register the main endpoint that accepts POST requests and streams SSE responses
 register_agui_endpoint(
