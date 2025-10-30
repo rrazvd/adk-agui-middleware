@@ -1,16 +1,22 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI, Request
 
 from google.adk.agents import Agent
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.sessions import DatabaseSessionService
 from ag_ui.core import RunAgentInput
 
-from adk_agui_middleware import SSEService, register_agui_endpoint
-from adk_agui_middleware.data_model.config import PathConfig
+from adk_agui_middleware import SSEService
+from adk_agui_middleware.endpoint import register_agui_endpoint
+from adk_agui_middleware.data_model.config import RunnerConfig, PathConfig
 from adk_agui_middleware.data_model.context import ConfigContext
-from adk_agui_middleware.data_model.config import RunnerConfig
+from adk_agui_middleware.tools.frontend_tool import FrontendToolset
+
 
 def get_items() -> list:
     """Returns a list of available items."""
@@ -31,57 +37,44 @@ root_agent = Agent(
                 Use case example: "What items are available?";
 
                 ALWAYS show data using the render_ItemsList rendering tool.
-                When the render_Items tool returns "success" it means the rendering was successful, 
+                When the render_ItemsList tool returns "success" it means the rendering was successful,
                 so do not present the data in plain text format, just indicate: "Here are the available items for you to choose from.".
 
         ## USER CONTEXT:
         - User name: "{user_name}"
     """,
-    tools=[get_items]
+    tools=[get_items, FrontendToolset()]
 )
 
 DATABASE_SERVICE_URI = "sqlite:///./sessions.db"
 
 # Define custom extractor that uses state
-async def user_id_extractor(input: RunAgentInput, _) -> str:
-    if hasattr(input.state, 'get') and input.state.get("user_id"):
-        return input.state["user_id"]
+async def user_id_extractor(agui_input: RunAgentInput, _: Request) -> str:
+    if hasattr(agui_input.state, 'get') and agui_input.state.get("user_id"):
+        return agui_input.state["user_id"]
     return "anonymous"
 
-# Minimal in-memory configuration suitable for local development
-# This uses default in-memory services for history, state, and session management
-
-# Configure how the middleware extracts request context from incoming requests
-config_context = ConfigContext(
-    app_name="agent",  # Application identifier for logging and state management
-    user_id=user_id_extractor,  # Function to extract user ID from state
-    # session_id defaults to a safe generator; you can also supply your own.
-)
-
-runner_config = RunnerConfig(session_service=DatabaseSessionService(DATABASE_SERVICE_URI))
-
-# Build the SSE service that will run the agent and stream events to the client
-# This service orchestrates the entire request-response pipeline
 sse_service = SSEService(
-    agent=root_agent,  # The LLM agent that processes user inputs
-    config_context=config_context,  # Request context extraction configuration
-    runner_config=runner_config
+    agent=root_agent,
+    config_context=ConfigContext(
+        app_name="agent",
+        user_id=user_id_extractor,
+    ),
+    runner_config=RunnerConfig(
+        session_service=DatabaseSessionService(DATABASE_SERVICE_URI),
+    ),
 )
 
-# Create the FastAPI app using ADK's helper to get all original SDK routes
 app: FastAPI = get_fast_api_app(
     agents_dir="../",
     session_service_uri=DATABASE_SERVICE_URI,
     web=True,
 )
 
-# Register the main endpoint that accepts POST requests and streams SSE responses
 register_agui_endpoint(
-    app=app,
-    sse_service=sse_service,
-    path_config=PathConfig(
-        agui_main_path="/ag-ui"
-    ),  # Endpoint will be available at POST /ag-ui
+    app,
+    sse_service,
+    path_config=PathConfig(agui_main_path="/ag-ui"),
 )
 
 if __name__ == "__main__":
