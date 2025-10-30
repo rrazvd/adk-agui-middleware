@@ -30,7 +30,7 @@ root_agent = Agent(
             - get_items: Get a list of available items.
                 Use case example: "What items are available?";
 
-                ALWAYS show data using the render_Items rendering tool.
+                ALWAYS show data using the render_ItemsList rendering tool.
                 When the render_Items tool returns "success" it means the rendering was successful, 
                 so do not present the data in plain text format, just indicate: "Here are the available items for you to choose from.".
 
