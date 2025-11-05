@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from google.adk.agents import Agent
 from google.adk.cli.fast_api import get_fast_api_app
@@ -71,6 +72,14 @@ app: FastAPI = get_fast_api_app(
     web=True,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3005"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 register_agui_endpoint(
     app,
     sse_service,
@@ -87,5 +96,5 @@ if __name__ == "__main__":
         print("   Get a key from: https://makersuite.google.com/app/apikey")
         print()
 
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
